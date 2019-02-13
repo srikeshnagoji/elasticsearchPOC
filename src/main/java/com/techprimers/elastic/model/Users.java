@@ -7,7 +7,7 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 
 @Entity
-@Document(indexName = "users", type = "users", shards = 1)
+@Document(indexName = "users", type = "users", shards = 1, refreshInterval = "2s")
 public class Users {
 
     private String name;
