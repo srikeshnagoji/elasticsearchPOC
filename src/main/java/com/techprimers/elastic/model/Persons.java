@@ -7,8 +7,8 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 
 @Entity
-@Document(indexName = "users", type = "users", shards = 1, refreshInterval = "2s")
-public class Users {
+@Document(indexName = "persons", type = "persons", shards = 1, refreshInterval = "2s")
+public class Persons {
 
     private String name;
     @Id
@@ -49,7 +49,7 @@ public class Users {
         this.salary = salary;
     }
 
-    public Users(String name, Long id, String teamName, Long salary) {
+    public Persons(String name, Long id, String teamName, Long salary) {
 
         this.name = name;
         this.id = id;
@@ -57,7 +57,7 @@ public class Users {
         this.salary = salary;
     }
 
-    public Users() {
+    public Persons() {
 
     }
 }

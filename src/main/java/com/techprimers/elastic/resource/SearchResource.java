@@ -1,6 +1,7 @@
 package com.techprimers.elastic.resource;
 
-import com.techprimers.elastic.model.Users;
+import com.techprimers.elastic.jparepository.UserJpaRepository;
+import com.techprimers.elastic.model.Persons;
 import com.techprimers.elastic.repository.UsersRepository;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.unit.Fuzziness;
@@ -10,10 +11,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.elasticsearch.core.query.SearchQuery;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static org.elasticsearch.index.query.MatchQueryBuilder.Operator.AND;
 import static org.elasticsearch.index.query.QueryBuilders.matchQuery;
@@ -27,47 +32,79 @@ public class SearchResource {
     @Autowired
     UsersRepository usersRepository;
     @Autowired
+    UserJpaRepository usersJpaRepository;
+    @Autowired
     private ElasticsearchTemplate elasticsearchTemplate;
     @Autowired
     Client client;
 
     @GetMapping(value = "/name/{text}")
-    public List<Users> searchName(@PathVariable final String text) {
+    public List<Persons> searchName(@PathVariable final String text) {
         return usersRepository.findByName(text);
     }
-
+    @GetMapping(value = "/namefromjpa/{text}")
+    public List<Persons> searchNamefromJpa(@PathVariable final String text) {
+        return usersJpaRepository.findByName(text);
+    }
 
     @GetMapping(value = "/salary/{salary}")
-    public List<Users> searchSalary(@PathVariable final Long salary) {
+    public List<Persons> searchSalary(@PathVariable final Long salary) {
         return usersRepository.findBySalary(salary);
     }
 
 
+    @PostMapping("/persons")
+    public ResponseEntity<Object> createPerson(@RequestBody Persons persons) {
+        Persons savedPerson = usersJpaRepository.save(persons);
+        usersRepository.save(savedPerson);//to elastic search db
+
+        URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{id}")
+                .buildAndExpand(savedPerson.getId()).toUri();
+
+        return ResponseEntity.created(location).build();
+
+    }
+    @PutMapping("/persons/{id}")
+    public ResponseEntity<Object> updatePerson(@RequestBody Persons persons, @PathVariable long id) {
+
+        Persons studentOptional = usersJpaRepository.findById(id);
+
+        if (studentOptional==null)
+            return ResponseEntity.notFound().build();
+
+        persons.setId(id);
+
+        usersJpaRepository.save(persons);
+        usersRepository.save(persons);//to elasticsearch
+
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping(value = "/all")
-    public List<Users> searchAll() {
-        List<Users> usersList = new ArrayList<>();
-        Iterable<Users> userses = usersRepository.findAll();
-        userses.forEach(usersList::add);
-        return usersList;
+    public List<Persons> searchAll() {
+        List<Persons> personsList = new ArrayList<>();
+        Iterable<Persons> userses = usersRepository.findAll();
+        userses.forEach(personsList::add);
+        return personsList;
     }
 
     @GetMapping(value = "/fuzzy/{fuzzyString}")//spell mistake
-    public List<Users> givenPhraseWithType_whenUseFuzziness_thenQueryMatches(@PathVariable final String fuzzyString) {
+    public List<Persons> givenPhraseWithType_whenUseFuzziness_thenQueryMatches(@PathVariable final String fuzzyString) {
         final SearchQuery searchQuery = new NativeSearchQueryBuilder()
                 .withQuery(matchQuery("name", fuzzyString).operator(AND).fuzziness(Fuzziness.TWO)
                         /*.prefixLength(3)*/).build();
 
-        final List<Users> userspage = elasticsearchTemplate.queryForList(searchQuery, Users.class);
-//        Page<Users> userspage = usersRepository.search(searchQuery);
+        final List<Persons> userspage = elasticsearchTemplate.queryForList(searchQuery, Persons.class);
+//        Page<Persons> userspage = usersRepository.search(searchQuery);
         return userspage;
     }
 
     @GetMapping(value = "/advsearch/{queryq}")//advanced search
-    public List<Users> givenPhraseWithType(@PathVariable final String queryq) {
+    public List<Persons> givenPhraseWithType(@PathVariable final String queryq) {
 
 
-        Iterable<Users> userspage = usersRepository.search(queryStringQuery(queryq));
-        List<Users> list=itr2lis(userspage);
+        Iterable<Persons> userspage = usersRepository.search(queryStringQuery(queryq));
+        List<Persons> list=itr2lis(userspage);
         return list;
     }
 
@@ -105,21 +142,32 @@ public class SearchResource {
     }*/
 
     @GetMapping(value = "/jsonquery")
-    public List<Users> elasSearch(@RequestBody final String query){
+    public List<Persons> elasSearch(@RequestBody final String query){
         QueryBuilder queryBuilder=QueryBuilders.wrapperQuery(query);
 
-        Iterable<Users> userspage = usersRepository.search(queryBuilder);
-        List<Users> list=itr2lis(userspage);
+        Iterable<Persons> userspage = usersRepository.search(queryBuilder);
+        List<Persons> list=itr2lis(userspage);
         return list;
     }
-    public List<Users> itr2lis(Iterable<Users> userspage){
-        ArrayList<Users> list = new ArrayList<Users>();
+    public List<Persons> itr2lis(Iterable<Persons> userspage){
+        ArrayList<Persons> list = new ArrayList<Persons>();
         if (userspage != null) {
-            for (Users e : userspage) {
+            for (Persons e : userspage) {
                 list.add(e);
             }
         }
         return list;
 
     }
+
+//exp
+   /* public List<Persons> givenPhraseWithType_Fuzziness_thenQueryMatches(@PathVariable final String fuzzyString) {
+        final SearchQuery searchQuery = new NativeSearchQueryBuilder()
+                .withQuery(matchQuery("name", fuzzyString).operator(AND).fuzziness(Fuzziness.TWO)
+                        *//*.prefixLength(3)*//*).build();
+
+        final List<Persons> userspage = elasticsearchTemplate.queryForList(searchQuery, Persons.class);
+//        Page<Persons> userspage = usersRepository.search(searchQuery);
+        return userspage;
+    }*/
 }
